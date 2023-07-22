@@ -53,6 +53,7 @@ def get_confident_bets(df_prediction_odds, property_name, score_threshold=0.75):
 
 # Initialize the app
 app = Dash(__name__)
+server = app.server
 
 # App layout
 app.layout = html.Div([
