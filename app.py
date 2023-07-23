@@ -7,8 +7,18 @@ date_str_today = datetime.datetime.now(pytz.timezone('US/Pacific')).strftime("%Y
 date_str_yesterday = (datetime.datetime.now(pytz.timezone('US/Pacific')) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
 df_live_odds = pd.read_pickle('odds_data/df_odds_today_all.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
-df_live_odds_1hits = df_live_odds[(df_live_odds.property=="Hits") & (df_live_odds.over_line < 1.0)]
-df_live_odds_1strikeouts = df_live_odds[(df_live_odds.property=="Strikeouts") & (df_live_odds.over_line < 1.0)]
+#df_live_odds_1hits = df_live_odds[(df_live_odds.property=="Hits") & (df_live_odds.over_line < 1.0)]
+#df_live_odds_1strikeouts = df_live_odds[(df_live_odds.property=="Strikeouts") & (df_live_odds.over_line < 1.0)]
+
+def read_df_odds_from_gcs(gcs_pkl_url):
+    df = pd.read_pickle(gcs_pkl_url).rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
+    df['game_date'] = pd.to_datetime(df['game_date'])
+    df['over_odds'] = df.over_odds.astype(np.int32)
+    df = df[df.over_line < 1.0]
+    return df
+
+df_live_odds_1hits = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/odds_hits.pkl")
+df_live_odds_1strikeouts = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/odds_strikeouts.pkl")
 
 df_odds = pd.read_pickle('odds_data/df_odds.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
 df_odds_1hits = df_odds[(df_odds.property=="Hits") & (df_odds.over_line < 1.0)]
@@ -16,8 +26,15 @@ df_odds_1strikeouts = df_odds[(df_odds.property=="Strikeouts") & (df_odds.over_l
 
 _default_threshold = 0.75
 
+def read_df_live_prediction_from_gcs(gcs_pkl_url):
+    df = pd.read_pickle(gcs_pkl_url)
+    df = df[['game_id', 'game_date', 'batting_shortName', 'batting_name', "prediction_score", "theo_odds"]]
+    return df
+
+
 # 1hits
-df_live_prediction_1hits = pd.read_pickle('update_data/df_live_prediction_batting_1hits_recorded.pkl')[['game_id', 'date', 'batting_shortName', 'batting_name', "prediction_score", "theo_odds"]]
+#df_live_prediction_1hits = pd.read_pickle('update_data/df_live_prediction_batting_1hits_recorded.pkl')[['game_id', 'date', 'batting_shortName', 'batting_name', "prediction_score", "theo_odds"]]
+df_live_prediction_1hits = read_df_live_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1hits_recorded.pkl")
 df_live_prediction_1hits = df_live_prediction_1hits.sort_values(['prediction_score'], ascending=False)
 df_live_prediction_1hits_odds = df_live_prediction_1hits.merge(df_live_odds_1hits, on=["game_id", "batting_name"], how="left")
 df_live_prediction_1hits_odds_high_score = df_live_prediction_1hits_odds[(df_live_prediction_1hits_odds.prediction_score > _default_threshold)]
@@ -29,7 +46,8 @@ df_prediction_1hits_odds = df_prediction_1hits.merge(df_odds_1hits, on=["game_id
 df_prediction_1hits_odds_high_score = df_prediction_1hits_odds[(df_prediction_1hits_odds.prediction_score > _default_threshold)]
 
 # 1strikeouts
-df_live_prediction_1strikeouts = pd.read_pickle('update_data/df_live_prediction_batting_1strikeOuts_recorded.pkl')[['game_id', 'date', 'batting_shortName', 'batting_name', "prediction_score", "theo_odds"]]
+#df_live_prediction_1strikeouts = pd.read_pickle('update_data/df_live_prediction_batting_1strikeOuts_recorded.pkl')[['game_id', 'date', 'batting_shortName', 'batting_name', "prediction_score", "theo_odds"]]
+df_live_prediction_1strikeouts = read_df_live_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1strikeOuts_recorded.pkl")
 df_live_prediction_1strikeouts = df_live_prediction_1strikeouts.sort_values(['prediction_score'], ascending=False)
 df_live_prediction_1strikeouts_odds = df_live_prediction_1strikeouts.merge(df_live_odds_1strikeouts, on=["game_id", "batting_name"], how="left")
 df_live_prediction_1strikeouts_odds_high_score = df_live_prediction_1strikeouts_odds[(df_live_prediction_1strikeouts_odds.prediction_score > _default_threshold)]
