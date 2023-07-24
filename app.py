@@ -6,7 +6,7 @@ import datetime, pytz
 date_str_today = datetime.datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
 date_str_yesterday = (datetime.datetime.now(pytz.timezone('US/Pacific')) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
-df_live_odds = pd.read_pickle('odds_data/df_odds_today_all.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
+#df_live_odds = pd.read_pickle('odds_data/df_odds_today_all.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
 #df_live_odds_1hits = df_live_odds[(df_live_odds.property=="Hits") & (df_live_odds.over_line < 1.0)]
 #df_live_odds_1strikeouts = df_live_odds[(df_live_odds.property=="Strikeouts") & (df_live_odds.over_line < 1.0)]
 
@@ -20,7 +20,7 @@ def read_df_odds_from_gcs(gcs_pkl_url):
 df_live_odds_1hits = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_hits.pkl")
 df_live_odds_1strikeouts = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_strikeouts.pkl")
 
-df_odds = pd.read_pickle('odds_data/df_odds.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
+df_odds = pd.read_pickle('odds_data/df_odds_2023_all.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
 df_odds_1hits = df_odds[(df_odds.property=="Hits") & (df_odds.over_line < 1.0)]
 df_odds_1strikeouts = df_odds[(df_odds.property=="Strikeouts") & (df_odds.over_line < 1.0)]
 
