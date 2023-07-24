@@ -14,11 +14,11 @@ def read_df_odds_from_gcs(gcs_pkl_url):
     df = pd.read_pickle(gcs_pkl_url).rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
     df['game_date'] = pd.to_datetime(df['game_date'])
     df['over_odds'] = df.over_odds.astype(np.int32)
-    df = df[df.over_line < 1.0]
+    #df = df[df.over_line < 1.0]
     return df
 
-df_live_odds_1hits = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/odds_hits.pkl")
-df_live_odds_1strikeouts = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/odds_strikeouts.pkl")
+df_live_odds_1hits = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_hits.pkl")
+df_live_odds_1strikeouts = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_strikeouts.pkl")
 
 df_odds = pd.read_pickle('odds_data/df_odds.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
 df_odds_1hits = df_odds[(df_odds.property=="Hits") & (df_odds.over_line < 1.0)]
