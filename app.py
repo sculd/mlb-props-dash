@@ -20,9 +20,10 @@ def read_df_odds_from_gcs(gcs_pkl_url):
 df_live_odds_1hits = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_hits.pkl")
 df_live_odds_1strikeouts = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_strikeouts.pkl")
 
-#df_odds = pd.read_pickle('odds_data/df_odds_2023_all.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
-df_odds_hits = pd.read_pickle('odds_data/df_odds_history_hits.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
-df_odds_strikeouts = pd.read_pickle('odds_data/df_odds_history_strikeouts.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
+#df_odds_hits = pd.read_pickle('odds_data/df_odds_history_hits.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
+df_odds_hits = read_df_odds_from_gcs('https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_hits.pkl')
+#df_odds_strikeouts = pd.read_pickle('odds_data/df_odds_history_strikeouts.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
+df_odds_strikeouts = read_df_odds_from_gcs('https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_strikeouts.pkl')
 
 
 _default_threshold = 0.75
