@@ -116,6 +116,11 @@ app.layout = html.Div([
     html.Div(children='Prediction History'),
     dash_table.DataTable(id="history_table_1strikeouts", data=df_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
     html.Div(id='confident_bet_profit_1strikeouts'),
+    dcc.Interval(
+        id='interval-component',
+        interval=10 * 60 * 1000, # in milliseconds
+        n_intervals=0
+    )
 ])
 
 @app.callback(
