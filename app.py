@@ -38,7 +38,7 @@ def read_df_live_prediction_from_gcs(gcs_pkl_url):
 
 def read_df_history_prediction_from_gcs(gcs_pkl_url):
     df = pd.read_pickle(gcs_pkl_url)
-    df = df[['game_id', 'game_date', 'batting_shortName', 'batting_name', "prediction_score", "theo_odds"]]
+    df = df[['game_id', 'game_date', 'batting_name', "property_name", "property_value", "prediction_label", "prediction_score", "theo_odds"]]
     return df
 
 
@@ -49,8 +49,8 @@ df_live_prediction_1hits = df_live_prediction_1hits.sort_values(['prediction_sco
 df_live_prediction_1hits_odds = df_live_prediction_1hits.merge(df_live_odds_1hits, on=["game_id", "batting_name"], how="left")
 df_live_prediction_1hits_odds_high_score = df_live_prediction_1hits_odds[(df_live_prediction_1hits_odds.prediction_score > _default_threshold)]
 
-#df_prediction_hits = pd.read_pickle('update_data/temp/df_prediction_batting_1hits_recorded_2023-07-20.pkl')
-df_prediction_hits = pd.read_pickle('update_data/df_history_prediction_batting_1hits_recorded.pkl').rename(columns={'date': 'game_date'})
+#df_prediction_hits = pd.read_pickle('update_data/df_history_prediction_batting_1hits_recorded.pkl').rename(columns={'date': 'game_date'})
+df_prediction_hits = read_df_history_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_history_prediction_batting_1hits_recorded.pkl")
 df_prediction_hits = df_prediction_hits[df_prediction_hits.game_date <= date_str_yesterday].sort_values(['game_date'], ascending=False)
 df_prediction_hits = df_prediction_hits[['game_id', 'game_date', 'batting_name', "property_name", "property_value", "prediction_label", "prediction_score", "theo_odds"]]
 df_prediction_hits_odds = df_prediction_hits.merge(df_odds_1hits, on=["game_id", "batting_name"], how="left")
@@ -63,8 +63,8 @@ df_live_prediction_strikeouts = df_live_prediction_strikeouts.sort_values(['pred
 df_live_prediction_strikeouts_odds = df_live_prediction_strikeouts.merge(df_live_odds_1strikeouts, on=["game_id", "batting_name"], how="left")
 df_live_prediction_strikeouts_odds_high_score = df_live_prediction_strikeouts_odds[(df_live_prediction_strikeouts_odds.prediction_score > _default_threshold)]
 
-#df_prediction_1strikeouts = pd.read_pickle('update_data/temp/df_prediction_batting_1strikeOuts_recorded_2023-07-21.pkl')
-df_prediction_1strikeouts = pd.read_pickle('update_data/df_history_prediction_batting_1strikeOuts_recorded.pkl').rename(columns={'date': 'game_date'})
+#df_prediction_1strikeouts = pd.read_pickle('update_data/df_history_prediction_batting_1strikeOuts_recorded.pkl').rename(columns={'date': 'game_date'})
+df_prediction_1strikeouts = read_df_history_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_history_prediction_batting_1strikeOuts_recorded.pkl")
 df_prediction_1strikeouts = df_prediction_1strikeouts[df_prediction_1strikeouts.game_date <= date_str_yesterday].sort_values(['game_date'], ascending=False)
 df_prediction_1strikeouts = df_prediction_1strikeouts[['game_id', 'game_date', 'batting_name', "property_name", "property_value", "prediction_label", "prediction_score", "theo_odds"]]
 df_prediction_1strikeouts_odds = df_prediction_1strikeouts.merge(df_odds_1strikeouts, on=["game_id", "batting_name"], how="left")
