@@ -21,12 +21,8 @@ df_live_odds_1hits = read_df_odds_from_gcs("https://storage.googleapis.com/major
 df_live_odds_1strikeouts = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_strikeouts.pkl")
 
 #df_odds = pd.read_pickle('odds_data/df_odds_2023_all.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
-#df_odds_1hits = df_odds[(df_odds.property=="Hits") & (df_odds.over_line < 1.0)]
-#df_odds_1strikeouts = df_odds[(df_odds.property=="Strikeouts") & (df_odds.over_line < 1.0)]
 df_odds_hits = pd.read_pickle('odds_data/df_odds_history_hits.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
-df_odds_1hits = df_odds_hits[df_odds_hits.over_line < 1]
 df_odds_strikeouts = pd.read_pickle('odds_data/df_odds_history_strikeouts.pkl').rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line']]
-df_odds_1strikeouts = df_odds_strikeouts[df_odds_strikeouts.over_line < 1]
 
 
 _default_threshold = 0.75
@@ -99,6 +95,12 @@ app.layout = html.Div([
         [
             "Threshold",
             dcc.Input(id="threshold", type="number", value=_default_threshold, step=0.05),
+            "Keep null records",
+            dcc.Checklist(
+                ['null'],
+                ['null'],
+                id="keep_null"
+            ),
         ],
         style={"width": 250},
     ),
@@ -117,31 +119,39 @@ app.layout = html.Div([
 ])
 
 @app.callback(
-    Output("live_table_1hits", "data"), Input("threshold", "value")
+    Output("live_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value")
 )
-def update_table_1hits(threshold):
+def update_table_1hits(threshold, keep_null):
     df_live_prediction_1hits_odds_high_score = df_live_prediction_1hits_odds[(df_live_prediction_1hits_odds.prediction_score > threshold)]
+    if not keep_null:
+        df_live_prediction_1hits_odds_high_score = df_live_prediction_1hits_odds_high_score.dropna()
     return df_live_prediction_1hits_odds_high_score.to_dict("records")
 
 @app.callback(
-    Output("live_table_1strikeouts", "data"), Input("threshold", "value")
+    Output("live_table_1strikeouts", "data"), Input("threshold", "value"), Input("keep_null", "value")
 )
-def update_table_1strikeout(threshold):
+def update_table_1strikeout(threshold, keep_null):
     df_live_prediction_strikeoutsodds_high_score = df_live_prediction_strikeouts_odds[(df_live_prediction_strikeouts_odds.prediction_score > threshold)]
+    if not keep_null:
+        df_live_prediction_strikeoutsodds_high_score = df_live_prediction_strikeoutsodds_high_score.dropna()
     return df_live_prediction_strikeoutsodds_high_score.to_dict("records")
 
 @app.callback(
-    Output("history_table_1hits", "data"), Input("threshold", "value")
+    Output("history_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value")
 )
-def update_table_1hits(threshold):
+def update_table_1hits(threshold, keep_null):
     df_prediction_hits_odds_high_score = df_prediction_hits_odds[(df_prediction_hits_odds.prediction_score > threshold)]
+    if not keep_null:
+        df_prediction_hits_odds_high_score = df_prediction_hits_odds_high_score.dropna()
     return df_prediction_hits_odds_high_score.to_dict("records")
 
 @app.callback(
-    Output("history_table_1strikeouts", "data"), Input("threshold", "value")
+    Output("history_table_1strikeouts", "data"), Input("threshold", "value"), Input("keep_null", "value")
 )
-def update_table_1strikeout(threshold):
+def update_table_1strikeout(threshold, keep_null):
     df_prediction_strikeouts_odds_high_score = df_prediction_strikeouts_odds[(df_prediction_strikeouts_odds.prediction_score > threshold)]
+    if not keep_null:
+        df_prediction_strikeouts_odds_high_score = df_prediction_strikeouts_odds_high_score.dropna()
     return df_prediction_strikeouts_odds_high_score.to_dict("records")
 
 @app.callback(
