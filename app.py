@@ -30,7 +30,7 @@ _default_threshold = 0.75
 
 def read_df_live_prediction_from_gcs(gcs_pkl_url):
     df = pd.read_pickle(gcs_pkl_url).rename(columns={'date': 'game_date'})
-    df = df[['game_id', 'game_date', 'batting_shortName', 'batting_name', "prediction_score", "theo_odds"]]
+    df = df[['game_id', 'game_date', 'batting_shortName', 'batting_name', "prediction_label", "prediction_score", "theo_odds"]]
     return df
 
 def read_df_history_prediction_from_gcs(gcs_pkl_url):
@@ -75,7 +75,7 @@ def get_confident_bets_description(df_prediction_odds, score_threshold=0.75):
     df_confident_prediction_odds_over_line_gt_1 = df_confident_prediction_odds[df_confident_prediction_odds.over_line > 1.0]
     df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.over_line < 1.0]
     if len(df_confident_prediction_odds) == 0:
-        return 0, 0, 0
+        return "empty"
     prodiction_successes = df_confident_prediction_odds["property_value"].sum()
     l = len(df_confident_prediction_odds)
     df_confident_prediction_odds = df_confident_prediction_odds.loc[:, ~df_confident_prediction_odds.columns.duplicated()].copy()
