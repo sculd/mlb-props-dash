@@ -72,14 +72,18 @@ def get_confident_bets_description(df_prediction_odds, target_prediction_label, 
         df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.over_line != target_line]
         df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.over_line == target_line]
     else:
-        df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.over_line != target_line]
-        df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.over_line == target_line]
+        df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.under_line != target_line]
+        df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.under_line == target_line]
     if len(df_confident_prediction_odds) == 0:
         return "empty"
-    prodiction_successes = df_confident_prediction_odds["property_value"].sum()
+    prodiction_successes = len(df_confident_prediction_odds[df_confident_prediction_odds.property_value == target_prediction_label])
     l = len(df_confident_prediction_odds)
-    ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.over_odds))
-    ideal_profit_pos_odds = np.divide(df_confident_prediction_odds.over_odds, 100)
+    if over_or_under == "over":
+        ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.over_odds))
+        ideal_profit_pos_odds = np.divide(df_confident_prediction_odds.over_odds, 100)
+    else:
+        ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.under_odds))
+        ideal_profit_pos_odds = np.divide(df_confident_prediction_odds.under_odds, 100)
     ideal_profit = np.where(df_confident_prediction_odds.over_odds < 0, ideal_profit_neg_odds, ideal_profit_pos_odds)
     ideal_reward = np.add(1.0, ideal_profit)
     profit = np.sum(np.multiply(df_confident_prediction_odds["property_value"], ideal_reward)) - l
