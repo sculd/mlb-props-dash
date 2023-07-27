@@ -3,6 +3,8 @@ from dash import Dash, dash_table, dcc, html, Input, Output, ctx
 import pandas as pd, numpy as np
 import datetime, pytz
 
+from flask_caching import Cache
+
 date_str_today = datetime.datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
 date_str_yesterday = (datetime.datetime.now(pytz.timezone('US/Pacific')) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
@@ -22,14 +24,29 @@ df_odds_strikeouts = read_df_odds_from_gcs('https://storage.googleapis.com/major
 
 _default_threshold = 0.75
 
-def read_df_live_prediction_from_gcs(gcs_pkl_url):
+# Initialize the app
+app = Dash(__name__)
+server = app.server
+cache = Cache(app.server, config={
+    'CACHE_TYPE': 'SimpleCache',
+})
+
+@cache.memoize(timeout=60*30) # in seconds
+def read_df_pkl_as_dict_from_gcs(gcs_pkl_url):
     df = pd.read_pickle(gcs_pkl_url).rename(columns={'date': 'game_date'})
+    return df.to_dict()
+
+def read_df_live_prediction_from_gcs(gcs_pkl_url):
+    #df = pd.read_pickle(gcs_pkl_url)
+    df = pd.DataFrame.from_dict(read_df_pkl_as_dict_from_gcs(gcs_pkl_url))
+    df = df.rename(columns={'date': 'game_date'})
     df = df[['game_id', 'game_date', 'batting_name', "prediction_label", "prediction_score", "theo_odds"]]
     df = df.sort_values(['prediction_score'], ascending=False)
     return df
 
 def read_df_history_prediction_from_gcs(gcs_pkl_url):
-    df = pd.read_pickle(gcs_pkl_url)
+    #df = pd.read_pickle(gcs_pkl_url)
+    df = pd.DataFrame.from_dict(read_df_pkl_as_dict_from_gcs(gcs_pkl_url))
     df = df[['game_id', 'game_date', 'batting_name', "property_name", "property_value", "prediction_label", "prediction_score", "theo_odds"]]
     df = df[df.game_date <= date_str_yesterday].sort_values(['game_date'], ascending=False)
 
@@ -81,20 +98,17 @@ def get_confident_bets_description(df_prediction_odds, target_prediction_label, 
     if over_or_under == "over":
         ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.over_odds))
         ideal_profit_pos_odds = np.divide(df_confident_prediction_odds.over_odds, 100)
+        ideal_profit = np.where(df_confident_prediction_odds.over_odds < 0, ideal_profit_neg_odds, ideal_profit_pos_odds)
     else:
         ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.under_odds))
         ideal_profit_pos_odds = np.divide(df_confident_prediction_odds.under_odds, 100)
-    ideal_profit = np.where(df_confident_prediction_odds.over_odds < 0, ideal_profit_neg_odds, ideal_profit_pos_odds)
+        ideal_profit = np.where(df_confident_prediction_odds.under_odds < 0, ideal_profit_neg_odds, ideal_profit_pos_odds)
     ideal_reward = np.add(1.0, ideal_profit)
-    profit = np.sum(np.multiply(df_confident_prediction_odds["property_value"], ideal_reward)) - l
+    profit = np.sum(np.multiply(np.where(df_confident_prediction_odds.property_value == target_prediction_label, 1, 0), ideal_reward)) - l
 
     profit = round(profit, 2)
     success_ratio = round(1.0 * prodiction_successes / l, 3) if l > 0 else 0
-    return f'excluded w/ line > 1.0: {len(df_confident_prediction_odds_opposite_line)}, success recorded ratio: {success_ratio} ({prodiction_successes} out of {l}), profit: {profit}'
-
-# Initialize the app
-app = Dash(__name__)
-server = app.server
+    return f'excluded different line than {target_line}: {len(df_confident_prediction_odds_opposite_line)}, success recorded ratio: {success_ratio} ({prodiction_successes} out of {l}), profit: {profit}'
 
 # App layout
 app.layout = html.Div([
@@ -121,19 +135,21 @@ app.layout = html.Div([
     dash_table.DataTable(id="live_table_1hits", data=df_live_prediction_1hits_odds_high_score.to_dict('records'), page_size=10),
     html.Div(children='Prediction History'),
     dash_table.DataTable(id="history_table_1hits", data=df_prediction_1hits_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(id='confident_bet_profit_1hits'),
+    html.Div(id='confident_over_bet_profit_1hits'),
+    html.Div(id='confident_under_bet_profit_1hits'),
     "2Hits",
     html.Div(children='Live Prediction'),
     dash_table.DataTable(id="live_table_2hits", data=df_live_prediction_2hits_odds_high_score.to_dict('records'), page_size=10),
     html.Div(children='Prediction History'),
     dash_table.DataTable(id="history_table_2hits", data=df_prediction_2hits_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(id='confident_bet_profit_2hits'),
+    html.Div(id='confident_under_bet_profit_2hits'),
     "1Strikeouts",
     html.Div(children='Live Prediction'),
     dash_table.DataTable(id="live_table_1strikeouts", data=df_live_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
     html.Div(children='Prediction History'),
     dash_table.DataTable(id="history_table_1strikeouts", data=df_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(id='confident_bet_profit_1strikeouts'),
+    html.Div(id='confident_over_bet_profit_1strikeouts'),
+    html.Div(id='confident_under_bet_profit_1strikeouts'),
     dcc.Interval(
         id='interval-component',
         interval=10 * 60 * 1000, # in milliseconds
@@ -208,25 +224,39 @@ def update_history_table_1strikeout(threshold, keep_null, all_lines):
     return df_prediction_strikeouts_odds_high_score.to_dict("records")
 
 @app.callback(
-    Output(component_id='confident_bet_profit_1hits', component_property='children'),
+    Output(component_id='confident_over_bet_profit_1hits', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
-def update_confident_1hits_bet_profit(threshold):
+def update_confident_1hits_over_bet_profit(threshold):
     return get_confident_bets_description(df_prediction_1hits_odds, target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
 
 @app.callback(
-    Output(component_id='confident_bet_profit_2hits', component_property='children'),
+    Output(component_id='confident_under_bet_profit_1hits', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
-def update_confident_2hits_bet_profit(threshold):
+def update_confident_1hits_under_bet_profit(threshold):
+    return get_confident_bets_description(df_prediction_1hits_odds, target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+
+@app.callback(
+    Output(component_id='confident_under_bet_profit_2hits', component_property='children'),
+    Input(component_id='threshold', component_property='value')
+)
+def update_confident_2hits_under_bet_profit(threshold):
     return get_confident_bets_description(df_prediction_2hits_odds, target_prediction_label=0.0, over_or_under="under", target_line=1.5, score_threshold=threshold)
 
 @app.callback(
-    Output(component_id='confident_bet_profit_1strikeouts', component_property='children'),
+    Output(component_id='confident_over_bet_profit_1strikeouts', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
-def update_confident_1strikeouts_bet_profit(threshold):
+def update_confident_1strikeouts_over_bet_profit(threshold):
     return get_confident_bets_description(df_prediction_strikeouts_odds, target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
+
+@app.callback(
+    Output(component_id='confident_under_bet_profit_1strikeouts', component_property='children'),
+    Input(component_id='threshold', component_property='value')
+)
+def update_confident_1strikeouts_under_bet_profit(threshold):
+    return get_confident_bets_description(df_prediction_strikeouts_odds, target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
 
 # Run the app
 if __name__ == '__main__':
