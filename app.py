@@ -25,7 +25,7 @@ df_odds_strikeouts = read_df_odds_from_gcs('https://storage.googleapis.com/major
 _default_threshold = 0.75
 
 # Initialize the app
-app = Dash(__name__)
+app = Dash(__name__, suppress_callback_exceptions=True)
 server = app.server
 cache = Cache(app.server, config={
     'CACHE_TYPE': 'SimpleCache',
@@ -130,32 +130,52 @@ app.layout = html.Div([
         ],
         style={"width": 250},
     ),
-    "1Hits",
-    html.Div(children='Live Prediction'),
-    dash_table.DataTable(id="live_table_1hits", data=df_live_prediction_1hits_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(children='Prediction History'),
-    dash_table.DataTable(id="history_table_1hits", data=df_prediction_1hits_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(id='confident_over_bet_profit_1hits'),
-    html.Div(id='confident_under_bet_profit_1hits'),
-    "2Hits",
-    html.Div(children='Live Prediction'),
-    dash_table.DataTable(id="live_table_2hits", data=df_live_prediction_2hits_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(children='Prediction History'),
-    dash_table.DataTable(id="history_table_2hits", data=df_prediction_2hits_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(id='confident_under_bet_profit_2hits'),
-    "1Strikeouts",
-    html.Div(children='Live Prediction'),
-    dash_table.DataTable(id="live_table_1strikeouts", data=df_live_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(children='Prediction History'),
-    dash_table.DataTable(id="history_table_1strikeouts", data=df_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
-    html.Div(id='confident_over_bet_profit_1strikeouts'),
-    html.Div(id='confident_under_bet_profit_1strikeouts'),
-    dcc.Interval(
-        id='interval-component',
-        interval=10 * 60 * 1000, # in milliseconds
-        n_intervals=0
-    )
+    dcc.Tabs(id='property-tabs', value='1Hits', children=[
+        dcc.Tab(label='1Hits', value='1Hits'),
+        dcc.Tab(label='2Hits', value='2Hits'),
+        dcc.Tab(label='1Strikeouts', value='1Strikeouts'),
+    ]),
+    html.Div(id='property-tab-content'),
 ])
+
+
+@app.callback(
+    Output('property-tab-content', 'children'),
+    Input('property-tabs', 'value')
+)
+def render_content(tab):
+    if tab == '1Hits':
+        return html.Div([
+            html.Div(children='Live Prediction'),
+            dash_table.DataTable(id="live_table_1hits",
+                                 data=df_live_prediction_1hits_odds_high_score.to_dict('records'), page_size=10),
+            html.Div(children='Prediction History'),
+            dash_table.DataTable(id="history_table_1hits", data=df_prediction_1hits_odds_high_score.to_dict('records'),
+                                 page_size=10),
+            html.Div(id='confident_over_bet_profit_1hits'),
+            html.Div(id='confident_under_bet_profit_1hits'),
+        ])
+    elif tab == '2Hits':
+        return html.Div([
+            html.Div(children='Live Prediction'),
+            dash_table.DataTable(id="live_table_2hits",
+                                 data=df_live_prediction_2hits_odds_high_score.to_dict('records'), page_size=10),
+            html.Div(children='Prediction History'),
+            dash_table.DataTable(id="history_table_2hits", data=df_prediction_2hits_odds_high_score.to_dict('records'),
+                                 page_size=10),
+            html.Div(id='confident_under_bet_profit_2hits'),
+        ])
+    elif tab == '1Strikeouts':
+        return html.Div([
+            html.Div(children='Live Prediction'),
+            dash_table.DataTable(id="live_table_1strikeouts",
+                                 data=df_live_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
+            html.Div(children='Prediction History'),
+            dash_table.DataTable(id="history_table_1strikeouts",
+                                 data=df_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
+            html.Div(id='confident_over_bet_profit_1strikeouts'),
+            html.Div(id='confident_under_bet_profit_1strikeouts'),
+        ])
 
 @app.callback(
     Output("live_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
