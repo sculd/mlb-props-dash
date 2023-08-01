@@ -8,21 +8,19 @@ from flask_caching import Cache
 date_str_today = datetime.datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
 date_str_yesterday = (datetime.datetime.now(pytz.timezone('US/Pacific')) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
-def read_df_odds_from_gcs(gcs_pkl_url):
-    df = pd.read_pickle(gcs_pkl_url).rename(columns={"player_name": "batting_name"})[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line', 'under_odds', 'under_line']]
-    df['game_date'] = pd.to_datetime(df['game_date'])
-    df['over_odds'] = df.over_odds.astype(np.int32)
-    #df = df[df.over_line < 1.0]
-    return df
-
-df_live_odds_hits = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_hits.pkl")
-df_live_odds_strikeouts = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_strikeouts.pkl")
-
-df_odds_hits = read_df_odds_from_gcs('https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_hits.pkl')
-df_odds_strikeouts = read_df_odds_from_gcs('https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_strikeouts.pkl')
-
-
 _default_threshold = 0.75
+
+GCS_URL_LIVE_PREDICTION_1HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1hits_recorded.pkl"
+GCS_URL_LIVE_PREDICTION_2HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_2hits_recorded.pkl"
+GCS_URL_LIVE_PREDICTION_1STRIKEOUT = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1strikeOuts_recorded.pkl"
+GCS_URL_LIVE_ODDS_HITS = "https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_hits.pkl"
+GCS_URL_LIVE_ODDS_STRIKEOUTS = "https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_today_strikeouts.pkl"
+
+GCS_URL_HISTORY_PREDICTION_1HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_history_prediction_batting_1hits_recorded.pkl"
+GCS_URL_HISTORY_PREDICTION_2HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_history_prediction_batting_2hits_recorded.pkl"
+GCS_URL_HISTORY_PREDICTION_1STRIKEOUT = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_history_prediction_batting_1strikeOuts_recorded.pkl"
+GCS_URL_HISTORY_ODDS_HITS = "https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_hits.pkl"
+GCS_URL_HISTORY_ODDS_STRIKEOUTS = "https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_strikeouts.pkl"
 
 # Initialize the app
 app = Dash(__name__, suppress_callback_exceptions=True)
@@ -36,6 +34,18 @@ def read_df_pkl_as_dict_from_gcs(gcs_pkl_url):
     df = pd.read_pickle(gcs_pkl_url).rename(columns={'date': 'game_date'})
     return df.to_dict()
 
+@cache.memoize(timeout=60*10) # in seconds
+def read_df_odds_from_gcs(gcs_pkl_url):
+    #df = pd.read_pickle(gcs_pkl_url)
+    df = pd.DataFrame.from_dict(read_df_pkl_as_dict_from_gcs(gcs_pkl_url))
+    df = df.rename(columns={"player_name": "batting_name"})
+    df = df[['game_id', 'game_date', 'team_away', 'team_home', 'batting_name', 'property', 'over_odds', 'over_line', 'under_odds', 'under_line']]
+    df['game_date'] = pd.to_datetime(df['game_date'])
+    df['over_odds'] = df.over_odds.astype(np.int32)
+    #df = df[df.over_line < 1.0]
+    return df
+
+@cache.memoize(timeout=60*10) # in seconds
 def read_df_live_prediction_from_gcs(gcs_pkl_url):
     #df = pd.read_pickle(gcs_pkl_url)
     df = pd.DataFrame.from_dict(read_df_pkl_as_dict_from_gcs(gcs_pkl_url))
@@ -44,6 +54,7 @@ def read_df_live_prediction_from_gcs(gcs_pkl_url):
     df = df.sort_values(['prediction_score'], ascending=False)
     return df
 
+@cache.memoize(timeout=60*10) # in seconds
 def read_df_history_prediction_from_gcs(gcs_pkl_url):
     #df = pd.read_pickle(gcs_pkl_url)
     df = pd.DataFrame.from_dict(read_df_pkl_as_dict_from_gcs(gcs_pkl_url))
@@ -51,34 +62,6 @@ def read_df_history_prediction_from_gcs(gcs_pkl_url):
     df = df[df.game_date <= date_str_yesterday].sort_values(['game_date'], ascending=False)
 
     return df
-
-
-# 1hits
-df_live_prediction_1hits = read_df_live_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1hits_recorded.pkl")
-df_live_prediction_1hits_odds = df_live_prediction_1hits.merge(df_live_odds_hits, on=["game_id", "batting_name"], how="left")
-df_live_prediction_1hits_odds_high_score = df_live_prediction_1hits_odds[(df_live_prediction_1hits_odds.prediction_score > _default_threshold)]
-
-df_prediction_1hits = read_df_history_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_history_prediction_batting_1hits_recorded.pkl")
-df_prediction_1hits_odds = df_prediction_1hits.merge(df_odds_hits, on=["game_id", "batting_name"], how="left")
-df_prediction_1hits_odds_high_score = df_prediction_1hits_odds[(df_prediction_1hits_odds.prediction_score > _default_threshold)]
-
-# 2hits
-df_live_prediction_2hits = read_df_live_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_2hits_recorded.pkl")
-df_live_prediction_2hits_odds = df_live_prediction_2hits.merge(df_live_odds_hits, on=["game_id", "batting_name"], how="left")
-df_live_prediction_2hits_odds_high_score = df_live_prediction_2hits_odds[(df_live_prediction_2hits_odds.prediction_score > _default_threshold)]
-
-df_prediction_2hits = read_df_history_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_history_prediction_batting_2hits_recorded.pkl")
-df_prediction_2hits_odds = df_prediction_2hits.merge(df_odds_hits, on=["game_id", "batting_name"], how="left")
-df_prediction_2hits_odds_high_score = df_prediction_2hits_odds[(df_prediction_2hits_odds.prediction_score > _default_threshold)]
-
-# 1strikeouts
-df_live_prediction_strikeouts = read_df_live_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1strikeOuts_recorded.pkl")
-df_live_prediction_strikeouts_odds = df_live_prediction_strikeouts.merge(df_live_odds_strikeouts, on=["game_id", "batting_name"], how="left")
-df_live_prediction_strikeouts_odds_high_score = df_live_prediction_strikeouts_odds[(df_live_prediction_strikeouts_odds.prediction_score > _default_threshold)]
-
-df_prediction_strikeouts = read_df_history_prediction_from_gcs("https://storage.googleapis.com/major-league-baseball-public/update_data/df_history_prediction_batting_1strikeOuts_recorded.pkl")
-df_prediction_strikeouts_odds = df_prediction_strikeouts.merge(df_odds_strikeouts, on=["game_id", "batting_name"], how="left")
-df_prediction_strikeouts_odds_high_score = df_prediction_strikeouts_odds[(df_prediction_strikeouts_odds.prediction_score > _default_threshold)]
 
 def get_confident_bets_description(df_prediction_odds, target_prediction_label, over_or_under, target_line, score_threshold=0.75):
     df_confident_prediction_odds = df_prediction_odds[
@@ -147,136 +130,158 @@ def render_content(tab):
     if tab == '1Hits':
         return html.Div([
             html.Div(children='Live Prediction'),
-            dash_table.DataTable(id="live_table_1hits",
-                                 data=df_live_prediction_1hits_odds_high_score.to_dict('records'), page_size=10),
+            dash_table.DataTable(id="live_table_1hits", data=get_live_data(GCS_URL_LIVE_PREDICTION_1HITS, GCS_URL_LIVE_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
             html.Div(children='Prediction History'),
-            dash_table.DataTable(id="history_table_1hits", data=df_prediction_1hits_odds_high_score.to_dict('records'),
-                                 page_size=10),
+            dash_table.DataTable(id="history_table_1hits", data=get_history_data(GCS_URL_HISTORY_PREDICTION_1HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
             html.Div(id='confident_over_bet_profit_1hits'),
             html.Div(id='confident_under_bet_profit_1hits'),
         ])
     elif tab == '2Hits':
         return html.Div([
             html.Div(children='Live Prediction'),
-            dash_table.DataTable(id="live_table_2hits",
-                                 data=df_live_prediction_2hits_odds_high_score.to_dict('records'), page_size=10),
+            dash_table.DataTable(id="live_table_2hits", data=get_live_data(GCS_URL_LIVE_PREDICTION_2HITS, GCS_URL_LIVE_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
             html.Div(children='Prediction History'),
-            dash_table.DataTable(id="history_table_2hits", data=df_prediction_2hits_odds_high_score.to_dict('records'),
-                                 page_size=10),
+            dash_table.DataTable(id="history_table_2hits", data=get_history_data(GCS_URL_HISTORY_PREDICTION_2HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
             html.Div(id='confident_under_bet_profit_2hits'),
         ])
     elif tab == '1Strikeouts':
         return html.Div([
             html.Div(children='Live Prediction'),
-            dash_table.DataTable(id="live_table_1strikeouts",
-                                 data=df_live_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
+            dash_table.DataTable(id="live_table_1strikeouts", data=get_live_data(GCS_URL_LIVE_PREDICTION_1STRIKEOUT, GCS_URL_LIVE_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
             html.Div(children='Prediction History'),
-            dash_table.DataTable(id="history_table_1strikeouts",
-                                 data=df_prediction_strikeouts_odds_high_score.to_dict('records'), page_size=10),
+            dash_table.DataTable(id="history_table_1strikeouts", data=get_history_data(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT, GCS_URL_HISTORY_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
             html.Div(id='confident_over_bet_profit_1strikeouts'),
             html.Div(id='confident_under_bet_profit_1strikeouts'),
         ])
+
+def merge_prediction_odds(df_prediction, df_odds):
+    return df_prediction.merge(df_odds, on=["game_id", "batting_name"], how="left")
+
+def get_live_data(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_lines):
+    df_prediction = read_df_live_prediction_from_gcs(live_prediction_gcs)
+    df_odds = read_df_odds_from_gcs(live_odds_gcs)
+    df_prediction_odds = merge_prediction_odds(df_prediction, df_odds)
+    df_prediction_odds_high_score = df_prediction_odds[(df_prediction_odds.prediction_score > threshold)]
+    if not keep_null:
+        df_prediction_odds_high_score = df_prediction_odds_high_score.dropna()
+    if not all_lines:
+        df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.over_line < 1.0]
+    return df_prediction_odds_high_score.to_dict("records")
+
+def get_history_data(history_prediction_gcs, history_odds_gcs, threshold, keep_null, all_lines):
+    df_prediction = read_df_history_prediction_from_gcs(history_prediction_gcs)
+    df_odds = read_df_odds_from_gcs(history_odds_gcs)
+    df_prediction_odds = merge_prediction_odds(df_prediction, df_odds)
+    df_prediction_odds_high_score = df_prediction_odds[(df_prediction_odds.prediction_score > threshold)]
+    if not keep_null:
+        df_prediction_odds_high_score = df_prediction_odds_high_score.dropna()
+    if not all_lines:
+        df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.over_line < 1.0]
+    return df_prediction_odds_high_score.to_dict("records")
 
 @app.callback(
     Output("live_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
 )
 def update_live_table_1hits(threshold, keep_null, all_lines):
-    df_live_prediction_1hits_odds_high_score = df_live_prediction_1hits_odds[(df_live_prediction_1hits_odds.prediction_score > threshold)]
-    if not keep_null:
-        df_live_prediction_1hits_odds_high_score = df_live_prediction_1hits_odds_high_score.dropna()
-    if not all_lines:
-        df_live_prediction_1hits_odds_high_score = df_live_prediction_1hits_odds_high_score[df_live_prediction_1hits_odds_high_score.over_line < 1.0]
-    return df_live_prediction_1hits_odds_high_score.to_dict("records")
+    return get_live_data(
+        GCS_URL_LIVE_PREDICTION_1HITS,
+        GCS_URL_LIVE_ODDS_HITS,
+        threshold, keep_null, all_lines)
 
 @app.callback(
     Output("live_table_2hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
 )
 def update_live_table_2hits(threshold, keep_null, all_lines):
-    df_live_prediction_2hits_odds_high_score = df_live_prediction_2hits_odds[(df_live_prediction_2hits_odds.prediction_score > threshold)]
-    if not keep_null:
-        df_live_prediction_2hits_odds_high_score = df_live_prediction_2hits_odds_high_score.dropna()
-    if not all_lines:
-        df_live_prediction_2hits_odds_high_score = df_live_prediction_2hits_odds_high_score[df_live_prediction_2hits_odds_high_score.over_line > 1.0]
-    return df_live_prediction_2hits_odds_high_score.to_dict("records")
+    return get_live_data(
+        GCS_URL_LIVE_PREDICTION_2HITS,
+        GCS_URL_LIVE_ODDS_HITS,
+        threshold, keep_null, all_lines)
 
 @app.callback(
     Output("live_table_1strikeouts", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
 )
 def update_live_table_1strikeout(threshold, keep_null, all_lines):
-    df_live_prediction_strikeoutsodds_high_score = df_live_prediction_strikeouts_odds[(df_live_prediction_strikeouts_odds.prediction_score > threshold)]
-    if not keep_null:
-        df_live_prediction_strikeoutsodds_high_score = df_live_prediction_strikeoutsodds_high_score.dropna()
-    if not all_lines:
-        df_live_prediction_strikeoutsodds_high_score = df_live_prediction_strikeoutsodds_high_score[df_live_prediction_strikeoutsodds_high_score.over_line < 1.0]
-    return df_live_prediction_strikeoutsodds_high_score.to_dict("records")
+    return get_live_data(
+        GCS_URL_LIVE_PREDICTION_1STRIKEOUT,
+        GCS_URL_LIVE_ODDS_STRIKEOUTS,
+        threshold, keep_null, all_lines)
 
 @app.callback(
     Output("history_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
 )
 def update_history_table_1hits(threshold, keep_null, all_lines):
-    df_prediction_hits_odds_high_score = df_prediction_1hits_odds[(df_prediction_1hits_odds.prediction_score > threshold)]
-    if not keep_null:
-        df_prediction_hits_odds_high_score = df_prediction_hits_odds_high_score.dropna()
-    if not all_lines:
-        df_prediction_hits_odds_high_score = df_prediction_hits_odds_high_score[df_prediction_hits_odds_high_score.over_line < 1.0]
-    return df_prediction_hits_odds_high_score.to_dict("records")
+    return get_history_data(
+        GCS_URL_HISTORY_PREDICTION_1HITS,
+        GCS_URL_HISTORY_ODDS_HITS,
+        threshold, keep_null, all_lines)
 
 @app.callback(
     Output("history_table_2hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
 )
 def update_history_table_2hits(threshold, keep_null, all_lines):
-    df_prediction_hits_odds_high_score = df_prediction_2hits_odds[(df_prediction_2hits_odds.prediction_score > threshold)]
-    if not keep_null:
-        df_prediction_hits_odds_high_score = df_prediction_hits_odds_high_score.dropna()
-    if not all_lines:
-        df_prediction_hits_odds_high_score = df_prediction_hits_odds_high_score[df_prediction_hits_odds_high_score.over_line > 1.0]
-    return df_prediction_hits_odds_high_score.to_dict("records")
+    return get_history_data(
+        GCS_URL_HISTORY_PREDICTION_2HITS,
+        GCS_URL_HISTORY_ODDS_HITS,
+        threshold, keep_null, all_lines)
 
 @app.callback(
     Output("history_table_1strikeouts", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
 )
 def update_history_table_1strikeout(threshold, keep_null, all_lines):
-    df_prediction_strikeouts_odds_high_score = df_prediction_strikeouts_odds[(df_prediction_strikeouts_odds.prediction_score > threshold)]
-    if not keep_null:
-        df_prediction_strikeouts_odds_high_score = df_prediction_strikeouts_odds_high_score.dropna()
-    if not all_lines:
-        df_prediction_strikeouts_odds_high_score = df_prediction_strikeouts_odds_high_score[df_prediction_strikeouts_odds_high_score.over_line < 1.0]
-    return df_prediction_strikeouts_odds_high_score.to_dict("records")
+    return get_history_data(
+        GCS_URL_HISTORY_PREDICTION_1STRIKEOUT,
+        GCS_URL_HISTORY_ODDS_STRIKEOUTS,
+        threshold, keep_null, all_lines)
+
+def get_df_history_prediction_odds_1hits_odds():
+    df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_1HITS)
+    df_odds = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_hits.pkl")
+    return merge_prediction_odds(df_prediction, df_odds)
+
+def get_df_history_prediction_odds_2hits_odds():
+    df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_2HITS)
+    df_odds = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_hits.pkl")
+    return merge_prediction_odds(df_prediction, df_odds)
+
+def get_df_history_prediction_odds_1strikeouts_odds():
+    df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT)
+    df_odds = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_strikeouts.pkl")
+    return merge_prediction_odds(df_prediction, df_odds)
 
 @app.callback(
     Output(component_id='confident_over_bet_profit_1hits', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1hits_over_bet_profit(threshold):
-    return get_confident_bets_description(df_prediction_1hits_odds, target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description(get_df_history_prediction_odds_1hits_odds(), target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_1hits', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1hits_under_bet_profit(threshold):
-    return get_confident_bets_description(df_prediction_1hits_odds, target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description(get_df_history_prediction_odds_1hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_2hits', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_2hits_under_bet_profit(threshold):
-    return get_confident_bets_description(df_prediction_2hits_odds, target_prediction_label=0.0, over_or_under="under", target_line=1.5, score_threshold=threshold)
+    return get_confident_bets_description(get_df_history_prediction_odds_2hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=1.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_over_bet_profit_1strikeouts', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1strikeouts_over_bet_profit(threshold):
-    return get_confident_bets_description(df_prediction_strikeouts_odds, target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description(get_df_history_prediction_odds_1strikeouts_odds(), target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_1strikeouts', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1strikeouts_under_bet_profit(threshold):
-    return get_confident_bets_description(df_prediction_strikeouts_odds, target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description(get_df_history_prediction_odds_1strikeouts_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
 
 # Run the app
 if __name__ == '__main__':
