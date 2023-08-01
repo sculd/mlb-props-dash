@@ -98,7 +98,7 @@ app.layout = html.Div([
     html.Div(
         [
             "Threshold",
-            dcc.Input(id="threshold", type="number", value=_default_threshold, step=0.05),
+            dcc.Input(id="threshold", type="number", value=_default_threshold, step=0.025),
             "Keep null records",
             dcc.Checklist(
                 ['null'],
