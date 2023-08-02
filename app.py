@@ -9,6 +9,8 @@ date_str_today = datetime.datetime.now(pytz.timezone('US/Pacific')).strftime("%Y
 date_str_yesterday = (datetime.datetime.now(pytz.timezone('US/Pacific')) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
 _default_threshold = 0.75
+_live_data_table_page_size = 5
+_history_data_table_page_size = 15
 
 GCS_URL_LIVE_PREDICTION_1HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1hits_recorded.pkl"
 GCS_URL_LIVE_PREDICTION_2HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_2hits_recorded.pkl"
@@ -130,26 +132,62 @@ def render_content(tab):
     if tab == '1Hits':
         return html.Div([
             html.Div(children='Live Prediction'),
-            dash_table.DataTable(id="live_table_1hits", data=get_live_data(GCS_URL_LIVE_PREDICTION_1HITS, GCS_URL_LIVE_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
+            dash_table.DataTable(id="live_table_1hits",
+                                 data=get_live_data(GCS_URL_LIVE_PREDICTION_1HITS, GCS_URL_LIVE_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True),
+                                 columns=[
+                                    {"name": i, 'id': i} for i in get_live_df(GCS_URL_LIVE_PREDICTION_1HITS, GCS_URL_LIVE_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True).columns
+                                 ],
+                                 filter_action="native",
+                                 page_size=_live_data_table_page_size),
             html.Div(children='Prediction History'),
-            dash_table.DataTable(id="history_table_1hits", data=get_history_data(GCS_URL_HISTORY_PREDICTION_1HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
+            dash_table.DataTable(id="history_table_1hits",
+                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_1HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True),
+                                 columns=[
+                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_1HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True).columns
+                                 ],
+                                 filter_action="native",
+                                 page_size=_history_data_table_page_size),
             html.Div(id='confident_over_bet_profit_1hits'),
             html.Div(id='confident_under_bet_profit_1hits'),
         ])
     elif tab == '2Hits':
         return html.Div([
             html.Div(children='Live Prediction'),
-            dash_table.DataTable(id="live_table_2hits", data=get_live_data(GCS_URL_LIVE_PREDICTION_2HITS, GCS_URL_LIVE_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
+            dash_table.DataTable(id="live_table_2hits",
+                                 data=get_live_data(GCS_URL_LIVE_PREDICTION_2HITS, GCS_URL_LIVE_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True),
+                                 columns=[
+                                    {"name": i, 'id': i} for i in get_live_df(GCS_URL_LIVE_PREDICTION_2HITS, GCS_URL_LIVE_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True).columns
+                                 ],
+                                 filter_action="native",
+                                 page_size=_live_data_table_page_size),
             html.Div(children='Prediction History'),
-            dash_table.DataTable(id="history_table_2hits", data=get_history_data(GCS_URL_HISTORY_PREDICTION_2HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
+            dash_table.DataTable(id="history_table_2hits",
+                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_2HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True),
+                                 columns=[
+                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_2HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True).columns
+                                 ],
+                                 filter_action="native",
+                                 page_size=_history_data_table_page_size),
             html.Div(id='confident_under_bet_profit_2hits'),
         ])
     elif tab == '1Strikeouts':
         return html.Div([
             html.Div(children='Live Prediction'),
-            dash_table.DataTable(id="live_table_1strikeouts", data=get_live_data(GCS_URL_LIVE_PREDICTION_1STRIKEOUT, GCS_URL_LIVE_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
+            dash_table.DataTable(id="live_table_1strikeouts",
+                                 data=get_live_data(GCS_URL_LIVE_PREDICTION_1STRIKEOUT, GCS_URL_LIVE_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True),
+                                 columns=[
+                                    {"name": i, 'id': i} for i in get_live_df(GCS_URL_LIVE_PREDICTION_1STRIKEOUT, GCS_URL_LIVE_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True).columns
+                                 ],
+                                 filter_action="native",
+                                 page_size=_live_data_table_page_size),
             html.Div(children='Prediction History'),
-            dash_table.DataTable(id="history_table_1strikeouts", data=get_history_data(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT, GCS_URL_HISTORY_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True), page_size=10),
+            dash_table.DataTable(id="history_table_1strikeouts",
+                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT, GCS_URL_HISTORY_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True),
+                                 columns=[
+                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT, GCS_URL_HISTORY_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True).columns
+                                 ],
+                                 filter_action="native",
+                                 page_size=_history_data_table_page_size),
             html.Div(id='confident_over_bet_profit_1strikeouts'),
             html.Div(id='confident_under_bet_profit_1strikeouts'),
         ])
@@ -157,7 +195,7 @@ def render_content(tab):
 def merge_prediction_odds(df_prediction, df_odds):
     return df_prediction.merge(df_odds, on=["game_id", "batting_name"], how="left")
 
-def get_live_data(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_lines):
+def get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_lines):
     df_prediction = read_df_live_prediction_from_gcs(live_prediction_gcs)
     df_odds = read_df_odds_from_gcs(live_odds_gcs)
     df_prediction_odds = merge_prediction_odds(df_prediction, df_odds)
@@ -166,9 +204,12 @@ def get_live_data(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_
         df_prediction_odds_high_score = df_prediction_odds_high_score.dropna()
     if not all_lines:
         df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.over_line < 1.0]
-    return df_prediction_odds_high_score.to_dict("records")
+    return df_prediction_odds_high_score
 
-def get_history_data(history_prediction_gcs, history_odds_gcs, threshold, keep_null, all_lines):
+def get_live_data(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_lines):
+    return get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_lines).to_dict("records")
+
+def get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, all_lines):
     df_prediction = read_df_history_prediction_from_gcs(history_prediction_gcs)
     df_odds = read_df_odds_from_gcs(history_odds_gcs)
     df_prediction_odds = merge_prediction_odds(df_prediction, df_odds)
@@ -177,7 +218,10 @@ def get_history_data(history_prediction_gcs, history_odds_gcs, threshold, keep_n
         df_prediction_odds_high_score = df_prediction_odds_high_score.dropna()
     if not all_lines:
         df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.over_line < 1.0]
-    return df_prediction_odds_high_score.to_dict("records")
+    return df_prediction_odds_high_score
+
+def get_history_data(history_prediction_gcs, history_odds_gcs, threshold, keep_null, all_lines):
+    return get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, all_lines).to_dict("records")
 
 @app.callback(
     Output("live_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
