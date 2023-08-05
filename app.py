@@ -141,9 +141,9 @@ def render_content(tab):
                                  page_size=_live_data_table_page_size),
             html.Div(children='Prediction History'),
             dash_table.DataTable(id="history_table_1hits",
-                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_1HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True),
+                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_1HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, target_line=None),
                                  columns=[
-                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_1HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True).columns
+                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_1HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, target_line=None).columns
                                  ],
                                  filter_action="native",
                                  page_size=_history_data_table_page_size),
@@ -162,9 +162,9 @@ def render_content(tab):
                                  page_size=_live_data_table_page_size),
             html.Div(children='Prediction History'),
             dash_table.DataTable(id="history_table_2hits",
-                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_2HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True),
+                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_2HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, target_line=None),
                                  columns=[
-                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_2HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, all_lines=True).columns
+                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_2HITS, GCS_URL_HISTORY_ODDS_HITS, _default_threshold, keep_null=True, target_line=None).columns
                                  ],
                                  filter_action="native",
                                  page_size=_history_data_table_page_size),
@@ -182,9 +182,9 @@ def render_content(tab):
                                  page_size=_live_data_table_page_size),
             html.Div(children='Prediction History'),
             dash_table.DataTable(id="history_table_1strikeouts",
-                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT, GCS_URL_HISTORY_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True),
+                                 data=get_history_data(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT, GCS_URL_HISTORY_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, target_line=None),
                                  columns=[
-                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT, GCS_URL_HISTORY_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, all_lines=True).columns
+                                    {"name": i, 'id': i} for i in get_history_df(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT, GCS_URL_HISTORY_ODDS_STRIKEOUTS, _default_threshold, keep_null=True, target_line=None).columns
                                  ],
                                  filter_action="native",
                                  page_size=_history_data_table_page_size),
@@ -209,19 +209,19 @@ def get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_li
 def get_live_data(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_lines):
     return get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, all_lines).to_dict("records")
 
-def get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, all_lines):
+def get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, target_line):
     df_prediction = read_df_history_prediction_from_gcs(history_prediction_gcs)
     df_odds = read_df_odds_from_gcs(history_odds_gcs)
     df_prediction_odds = merge_prediction_odds(df_prediction, df_odds)
     df_prediction_odds_high_score = df_prediction_odds[(df_prediction_odds.prediction_score > threshold)]
     if not keep_null:
         df_prediction_odds_high_score = df_prediction_odds_high_score.dropna()
-    if not all_lines:
-        df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.over_line < 1.0]
+    if target_line is not None:
+        df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.over_line == target_line]
     return df_prediction_odds_high_score
 
-def get_history_data(history_prediction_gcs, history_odds_gcs, threshold, keep_null, all_lines):
-    return get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, all_lines).to_dict("records")
+def get_history_data(history_prediction_gcs, history_odds_gcs, threshold, keep_null, target_line):
+    return get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, target_line).to_dict("records")
 
 @app.callback(
     Output("live_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
@@ -257,7 +257,7 @@ def update_history_table_1hits(threshold, keep_null, all_lines):
     return get_history_data(
         GCS_URL_HISTORY_PREDICTION_1HITS,
         GCS_URL_HISTORY_ODDS_HITS,
-        threshold, keep_null, all_lines)
+        threshold, keep_null, None if all_lines else 0.5)
 
 @app.callback(
     Output("history_table_2hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
@@ -266,7 +266,7 @@ def update_history_table_2hits(threshold, keep_null, all_lines):
     return get_history_data(
         GCS_URL_HISTORY_PREDICTION_2HITS,
         GCS_URL_HISTORY_ODDS_HITS,
-        threshold, keep_null, all_lines)
+        threshold, keep_null, None if all_lines else 1.5)
 
 @app.callback(
     Output("history_table_1strikeouts", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
@@ -275,7 +275,7 @@ def update_history_table_1strikeout(threshold, keep_null, all_lines):
     return get_history_data(
         GCS_URL_HISTORY_PREDICTION_1STRIKEOUT,
         GCS_URL_HISTORY_ODDS_STRIKEOUTS,
-        threshold, keep_null, all_lines)
+        threshold, keep_null, None if all_lines else 0.5)
 
 def get_df_history_prediction_odds_1hits_odds():
     df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_1HITS)
