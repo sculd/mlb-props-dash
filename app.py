@@ -230,7 +230,7 @@ def update_live_table_1hits(threshold, keep_null, all_lines):
     return get_live_data(
         GCS_URL_LIVE_PREDICTION_1HITS,
         GCS_URL_LIVE_ODDS_HITS,
-        threshold, keep_null, all_lines)
+        threshold, keep_null, None if all_lines else 0.5)
 
 @app.callback(
     Output("live_table_2hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
@@ -239,7 +239,7 @@ def update_live_table_2hits(threshold, keep_null, all_lines):
     return get_live_data(
         GCS_URL_LIVE_PREDICTION_2HITS,
         GCS_URL_LIVE_ODDS_HITS,
-        threshold, keep_null, all_lines)
+        threshold, keep_null, None if all_lines else 1.5)
 
 @app.callback(
     Output("live_table_1strikeouts", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
@@ -248,7 +248,7 @@ def update_live_table_1strikeout(threshold, keep_null, all_lines):
     return get_live_data(
         GCS_URL_LIVE_PREDICTION_1STRIKEOUT,
         GCS_URL_LIVE_ODDS_STRIKEOUTS,
-        threshold, keep_null, all_lines)
+        threshold, keep_null, None if all_lines else 0.5)
 
 @app.callback(
     Output("history_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
