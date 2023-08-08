@@ -193,7 +193,9 @@ def render_content(tab):
         ])
 
 def merge_prediction_odds(df_prediction, df_odds):
-    return df_prediction.merge(df_odds, on=["game_id", "batting_name"], how="left")
+    columns_odds = ["game_id", "batting_name"] + list(df_odds.columns.difference(df_prediction.columns))
+    df_odds_selected = df_odds[columns_odds]
+    return df_prediction.merge(df_odds_selected, on=["game_id", "batting_name"], how="left")
 
 def get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, target_line):
     df_prediction = read_df_live_prediction_from_gcs(live_prediction_gcs)
