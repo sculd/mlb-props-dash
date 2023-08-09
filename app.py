@@ -324,7 +324,7 @@ def update_confident_1hits_over_bet_profit(threshold):
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1hits_under_bet_profit(threshold):
-    return get_confident_bets_description("1hit line=1.5 under", get_df_history_prediction_odds_1hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description("1hit line=0.5 under", get_df_history_prediction_odds_1hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_2hits', component_property='children'),
