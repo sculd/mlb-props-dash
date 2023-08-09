@@ -345,7 +345,7 @@ def update_confident_1strikeouts_over_bet_profit(threshold):
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1strikeouts_under_bet_profit(threshold):
-    return get_confident_bets_description(get_df_history_prediction_odds_1strikeouts_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description("1striekout line=0.5 under", get_df_history_prediction_odds_1strikeouts_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
 
 # Run the app
 if __name__ == '__main__':
