@@ -10,7 +10,7 @@ date_str_yesterday = (datetime.datetime.now(pytz.timezone('US/Pacific')) - datet
 
 _default_threshold = 0.75
 _live_data_table_page_size = 10
-_history_data_table_page_size = 15
+_history_data_table_page_size = 10
 
 GCS_URL_LIVE_PREDICTION_1HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1hits_recorded.pkl"
 GCS_URL_LIVE_PREDICTION_2HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_2hits_recorded.pkl"
