@@ -77,7 +77,7 @@ def get_confident_bets_description(desc, df_prediction_odds, target_prediction_l
         df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.under_line != target_line]
         df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.under_line == target_line]
     if len(df_confident_prediction_odds) == 0:
-        return "empty"
+        return f"{desc} empty"
 
     prodiction_successes = len(df_confident_prediction_odds[df_confident_prediction_odds.property_value == target_prediction_label])
     l = len(df_confident_prediction_odds)
