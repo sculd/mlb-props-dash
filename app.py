@@ -65,10 +65,10 @@ def read_df_history_prediction_from_gcs(gcs_pkl_url):
 
     return df
 
-def get_confident_bets_description(df_prediction_odds, target_prediction_label, over_or_under, target_line, score_threshold=0.75):
+def get_confident_bets_description(desc, df_prediction_odds, target_prediction_label, over_or_under, target_line, score_threshold=0.75):
     df_confident_prediction_odds = df_prediction_odds[
         df_prediction_odds["prediction_score"] >= score_threshold].dropna()
-    # the prediction_label should be separatedly checked. higher score does not always lead to prediction label. (maybe the score stands for both labels).
+    # the pred`iction_label should be separatedly checked. higher score does not always lead to prediction label. (maybe the score stands for both labels).
     df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds["prediction_label"] == target_prediction_label]
     if over_or_under == "over":
         df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.over_line != target_line]
@@ -78,22 +78,35 @@ def get_confident_bets_description(df_prediction_odds, target_prediction_label, 
         df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.under_line == target_line]
     if len(df_confident_prediction_odds) == 0:
         return "empty"
+
     prodiction_successes = len(df_confident_prediction_odds[df_confident_prediction_odds.property_value == target_prediction_label])
     l = len(df_confident_prediction_odds)
     if over_or_under == "over":
         ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.over_odds))
         ideal_profit_pos_odds = np.divide(df_confident_prediction_odds.over_odds, 100)
         ideal_profit = np.where(df_confident_prediction_odds.over_odds < 0, ideal_profit_neg_odds, ideal_profit_pos_odds)
+
+        ideal_profit_reverse_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.under_odds))
+        ideal_profit_reverse_pos_odds = np.divide(df_confident_prediction_odds.under_odds, 100)
+        ideal_profit_reverse = np.where(df_confident_prediction_odds.under_odds < 0, ideal_profit_reverse_neg_odds, ideal_profit_reverse_pos_odds)
     else:
         ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.under_odds))
         ideal_profit_pos_odds = np.divide(df_confident_prediction_odds.under_odds, 100)
         ideal_profit = np.where(df_confident_prediction_odds.under_odds < 0, ideal_profit_neg_odds, ideal_profit_pos_odds)
+
+        ideal_profit_reverse_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.over_odds))
+        ideal_profit_reverse_pos_odds = np.divide(df_confident_prediction_odds.over_odds, 100)
+        ideal_profit_reverse = np.where(df_confident_prediction_odds.over_odds < 0, ideal_profit_reverse_neg_odds, ideal_profit_reverse_pos_odds)
+
     ideal_reward = np.add(1.0, ideal_profit)
     profit = np.sum(np.multiply(np.where(df_confident_prediction_odds.property_value == target_prediction_label, 1, 0), ideal_reward)) - l
-
     profit = round(profit, 2)
+    # profit in case the choice was made to the opposite of the model prediction.
+    ideal_reward_reverse = np.add(1.0, ideal_profit_reverse)
+    profit_reverse = np.sum(np.multiply(np.where(df_confident_prediction_odds.property_value != target_prediction_label, 1, 0), ideal_reward_reverse)) - l
+    profit_reverse = round(profit_reverse, 2)
     success_ratio = round(1.0 * prodiction_successes / l, 3) if l > 0 else 0
-    return f'excluded different line than {target_line}: {len(df_confident_prediction_odds_opposite_line)}, success recorded ratio: {success_ratio} ({prodiction_successes} out of {l}), profit: {profit}'
+    return f'{desc} excluded different line than {target_line}: {len(df_confident_prediction_odds_opposite_line)}, success recorded ratio: {success_ratio} ({prodiction_successes} out of {l}), profit: {profit}, profit_reverse: {profit_reverse}'
 
 # App layout
 app.layout = html.Div([
@@ -281,17 +294,17 @@ def update_history_table_1strikeout(threshold, keep_null, all_lines):
 
 def get_df_history_prediction_odds_1hits_odds():
     df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_1HITS)
-    df_odds = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_hits.pkl")
+    df_odds = read_df_odds_from_gcs(GCS_URL_HISTORY_ODDS_HITS)
     return merge_prediction_odds(df_prediction, df_odds)
 
 def get_df_history_prediction_odds_2hits_odds():
     df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_2HITS)
-    df_odds = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_hits.pkl")
+    df_odds = read_df_odds_from_gcs(GCS_URL_HISTORY_ODDS_HITS)
     return merge_prediction_odds(df_prediction, df_odds)
 
 def get_df_history_prediction_odds_1strikeouts_odds():
     df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT)
-    df_odds = read_df_odds_from_gcs("https://storage.googleapis.com/major-league-baseball-public/odds_data/df_odds_history_strikeouts.pkl")
+    df_odds = read_df_odds_from_gcs(GCS_URL_HISTORY_ODDS_STRIKEOUTS)
     return merge_prediction_odds(df_prediction, df_odds)
 
 @app.callback(
@@ -299,28 +312,28 @@ def get_df_history_prediction_odds_1strikeouts_odds():
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1hits_over_bet_profit(threshold):
-    return get_confident_bets_description(get_df_history_prediction_odds_1hits_odds(), target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description("1hit line=0.5 over", get_df_history_prediction_odds_1hits_odds(), target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_1hits', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1hits_under_bet_profit(threshold):
-    return get_confident_bets_description(get_df_history_prediction_odds_1hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description("1hit line=1.5 under", get_df_history_prediction_odds_1hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_2hits', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_2hits_under_bet_profit(threshold):
-    return get_confident_bets_description(get_df_history_prediction_odds_2hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=1.5, score_threshold=threshold)
+    return get_confident_bets_description("2hits line=1.5 under", get_df_history_prediction_odds_2hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=1.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_over_bet_profit_1strikeouts', component_property='children'),
     Input(component_id='threshold', component_property='value')
 )
 def update_confident_1strikeouts_over_bet_profit(threshold):
-    return get_confident_bets_description(get_df_history_prediction_odds_1strikeouts_odds(), target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
+    return get_confident_bets_description("1striekout line=0.5 over", get_df_history_prediction_odds_1strikeouts_odds(), target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_1strikeouts', component_property='children'),
