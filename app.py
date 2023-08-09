@@ -9,7 +9,7 @@ date_str_today = datetime.datetime.now(pytz.timezone('US/Pacific')).strftime("%Y
 date_str_yesterday = (datetime.datetime.now(pytz.timezone('US/Pacific')) - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
 
 _default_threshold = 0.75
-_live_data_table_page_size = 10
+_live_data_table_page_size = 6
 _history_data_table_page_size = 10
 
 GCS_URL_LIVE_PREDICTION_1HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1hits_recorded.pkl"
