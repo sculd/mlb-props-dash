@@ -79,8 +79,6 @@ def get_confident_bets_description(desc, df_prediction_odds, target_prediction_l
     if len(df_confident_prediction_odds) == 0:
         return f"{desc} empty"
 
-    prodiction_successes = len(df_confident_prediction_odds[df_confident_prediction_odds.property_value == target_prediction_label])
-    l = len(df_confident_prediction_odds)
     if over_or_under == "over":
         ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.over_odds))
         ideal_profit_pos_odds = np.divide(df_confident_prediction_odds.over_odds, 100)
@@ -98,15 +96,43 @@ def get_confident_bets_description(desc, df_prediction_odds, target_prediction_l
         ideal_profit_reverse_pos_odds = np.divide(df_confident_prediction_odds.over_odds, 100)
         ideal_profit_reverse = np.where(df_confident_prediction_odds.over_odds < 0, ideal_profit_reverse_neg_odds, ideal_profit_reverse_pos_odds)
 
+    l = len(df_confident_prediction_odds)
+
     ideal_reward = np.add(1.0, ideal_profit)
+    prodiction_successes = len(df_confident_prediction_odds[df_confident_prediction_odds.property_value == target_prediction_label])
     profit = np.sum(np.multiply(np.where(df_confident_prediction_odds.property_value == target_prediction_label, 1, 0), ideal_reward)) - l
     profit = round(profit, 2)
+
     # profit in case the choice was made to the opposite of the model prediction.
+    prodiction_reverse_successes = len(df_confident_prediction_odds[df_confident_prediction_odds.property_value != target_prediction_label])
     ideal_reward_reverse = np.add(1.0, ideal_profit_reverse)
     profit_reverse = np.sum(np.multiply(np.where(df_confident_prediction_odds.property_value != target_prediction_label, 1, 0), ideal_reward_reverse)) - l
     profit_reverse = round(profit_reverse, 2)
     success_ratio = round(1.0 * prodiction_successes / l, 3) if l > 0 else 0
     return f'{desc} excluded different line than {target_line}: {len(df_confident_prediction_odds_opposite_line)}, success recorded ratio: {success_ratio} ({prodiction_successes} out of {l}), profit: {profit}, profit_reverse: {profit_reverse}'
+
+def get_positive_under_odds_bets_description(desc, df_prediction_odds, target_line, positive_odds_threshold):
+    '''
+    This describes the performance when betting on the under (property value 0), positive odds, regardless of the prediction.
+    '''
+    df_confident_prediction_odds = df_prediction_odds.dropna()
+    df_confident_prediction_odds = df_confident_prediction_odds[
+        df_confident_prediction_odds["game_date"] >= '2023-07-19']
+    df_confident_prediction_odds = df_confident_prediction_odds[
+        df_confident_prediction_odds["under_odds"] >= positive_odds_threshold]
+    df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.under_line == target_line]
+    if len(df_confident_prediction_odds) == 0:
+        return f"{desc} empty"
+
+    ideal_profit = np.divide(df_confident_prediction_odds.under_odds, 100)
+    ideal_reward = np.add(1.0, ideal_profit)
+    prodiction_successes = len(df_confident_prediction_odds[df_confident_prediction_odds.property_value == 0])
+    l = len(df_confident_prediction_odds)
+    profit = np.sum(np.multiply(np.where(df_confident_prediction_odds.property_value == 0, 1, 0), ideal_reward)) - l
+    profit = round(profit, 2)
+
+    success_ratio = round(1.0 * prodiction_successes / l, 3) if l > 0 else 0
+    return f'{desc} success recorded ratio: {success_ratio} ({prodiction_successes} out of {l}), profit: {profit}'
 
 # App layout
 app.layout = html.Div([
@@ -114,6 +140,8 @@ app.layout = html.Div([
         [
             "Threshold",
             dcc.Input(id="threshold", type="number", value=_default_threshold, step=0.025),
+            "Blind Pick Pos Odds",
+            dcc.Input(id="pos_odds_thresholdd", type="number", value=150, step=10),
             "Keep null records",
             dcc.Checklist(
                 ['null'],
@@ -163,6 +191,7 @@ def render_content(tab):
                                  page_size=_history_data_table_page_size),
             html.Div(id='confident_over_bet_profit_1hits'),
             html.Div(id='confident_under_bet_profit_1hits'),
+            html.Div(id='blind_under_bet_profit_1hits'),
         ])
     elif tab == '2Hits':
         return html.Div([
@@ -236,7 +265,7 @@ def get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_nul
         df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.over_line == target_line]
     if win_loss_dropdown == 'win':
         df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.prediction_label == df_prediction_odds_high_score.property_value]
-    elif win_loss_dropdown == 'kise':
+    elif win_loss_dropdown == 'lose':
         df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.prediction_label != df_prediction_odds_high_score.property_value]
     return df_prediction_odds_high_score
 
@@ -325,6 +354,13 @@ def update_confident_1hits_over_bet_profit(threshold):
 )
 def update_confident_1hits_under_bet_profit(threshold):
     return get_confident_bets_description("1hit line=0.5 under", get_df_history_prediction_odds_1hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+
+@app.callback(
+    Output(component_id='blind_under_bet_profit_1hits', component_property='children'),
+    Input(component_id='pos_odds_thresholdd', component_property='value')
+)
+def update_blins_1hits_under_bet_profit(pos_odds_thresholdd):
+    return get_positive_under_odds_bets_description(f"1hit line=0.5 bet all positive under odds > {pos_odds_thresholdd}", get_df_history_prediction_odds_1hits_odds(), target_line=0.5, positive_odds_threshold=pos_odds_thresholdd)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_2hits', component_property='children'),
