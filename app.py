@@ -67,17 +67,29 @@ def read_df_history_prediction_from_gcs(gcs_pkl_url):
 
 def get_confident_bets_description(desc, df_prediction_odds, target_prediction_label, over_or_under, target_line, score_threshold=0.75):
     df_confident_prediction_odds = df_prediction_odds[
-        df_prediction_odds["prediction_score"] >= score_threshold].dropna()
-    # the pred`iction_label should be separatedly checked. higher score does not always lead to prediction label. (maybe the score stands for both labels).
+        df_prediction_odds["prediction_score"] >= score_threshold]
+
+    # the prediction_label should be separatedly checked. higher score does not always lead to prediction label. (the score stands for both labels).
     df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds["prediction_label"] == target_prediction_label]
-    if over_or_under == "over":
-        df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.over_line != target_line]
-        df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.over_line == target_line]
+    if target_line is None:
+        df_confident_prediction_odds_opposite_line = df_confident_prediction_odds
+        df_confident_prediction_odds = df_confident_prediction_odds
     else:
-        df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.under_line != target_line]
-        df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.under_line == target_line]
+        if over_or_under == "over":
+            df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.over_line != target_line]
+            df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.over_line == target_line]
+        else:
+            df_confident_prediction_odds_opposite_line = df_confident_prediction_odds[df_confident_prediction_odds.under_line != target_line]
+            df_confident_prediction_odds = df_confident_prediction_odds[df_confident_prediction_odds.under_line == target_line]
+
     if len(df_confident_prediction_odds) == 0:
-        return f"{desc} empty"
+        win_rate = 0.0
+    else:
+        win_rate = 1.0 * len(df_confident_prediction_odds[df_confident_prediction_odds.property_value == df_confident_prediction_odds.prediction_label]) / len(df_confident_prediction_odds)
+        win_rate = round(win_rate, 3)
+
+    if len(df_confident_prediction_odds) == 0:
+        return f"{desc} success recorded ratio: {win_rate}"
 
     if over_or_under == "over":
         ideal_profit_neg_odds = np.divide(100.0, np.abs(df_confident_prediction_odds.over_odds))
@@ -109,7 +121,7 @@ def get_confident_bets_description(desc, df_prediction_odds, target_prediction_l
     profit_reverse = np.sum(np.multiply(np.where(df_confident_prediction_odds.property_value != target_prediction_label, 1, 0), ideal_reward_reverse)) - l
     profit_reverse = round(profit_reverse, 2)
     success_ratio = round(1.0 * prodiction_successes / l, 3) if l > 0 else 0
-    return f'{desc} excluded different line than {target_line}: {len(df_confident_prediction_odds_opposite_line)}, success recorded ratio: {success_ratio} ({prodiction_successes} out of {l}), profit: {profit}, profit_reverse: {profit_reverse}'
+    return f'{desc} excluded ({len(df_confident_prediction_odds_opposite_line)}) which is of different line than {target_line}, success recorded ratio: {success_ratio} ({prodiction_successes} out of {l}), profit: {profit}, profit_reverse: {profit_reverse}'
 
 def get_positive_under_odds_bets_description(desc, df_prediction_odds, target_line, positive_odds_threshold):
     '''
@@ -235,29 +247,14 @@ def render_content(tab):
             html.Div(id='confident_under_bet_profit_1strikeouts'),
         ])
 
-def merge_prediction_odds(df_prediction, df_odds):
+def merge_prediction_odds(df_prediction, df_odds, keep_null):
     columns_odds = ["game_id", "batting_name"] + list(df_odds.columns.difference(df_prediction.columns))
     df_odds_selected = df_odds[columns_odds]
-    return df_prediction.merge(df_odds_selected, on=["game_id", "batting_name"], how="left")
+    join_how = 'left' if keep_null else 'inner'
+    return df_prediction.merge(df_odds_selected, on=["game_id", "batting_name"], how=join_how)
 
-def get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, target_line):
-    df_prediction = read_df_live_prediction_from_gcs(live_prediction_gcs)
-    df_odds = read_df_odds_from_gcs(live_odds_gcs)
-    df_prediction_odds = merge_prediction_odds(df_prediction, df_odds)
-    df_prediction_odds_high_score = df_prediction_odds[(df_prediction_odds.prediction_score > threshold)]
-    if not keep_null:
-        df_prediction_odds_high_score = df_prediction_odds_high_score.dropna()
-    if target_line is not None:
-        df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.over_line == target_line]
-    return df_prediction_odds_high_score
-
-def get_live_data(live_prediction_gcs, live_odds_gcs, threshold, keep_null, target_line):
-    return get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, target_line).to_dict("records")
-
-def get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, target_line, win_loss_dropdown):
-    df_prediction = read_df_history_prediction_from_gcs(history_prediction_gcs)
-    df_odds = read_df_odds_from_gcs(history_odds_gcs)
-    df_prediction_odds = merge_prediction_odds(df_prediction, df_odds)
+def filter_df(df_prediction, df_odds, threshold, keep_null, target_line, win_loss_dropdown):
+    df_prediction_odds = merge_prediction_odds(df_prediction, df_odds, keep_null)
     df_prediction_odds_high_score = df_prediction_odds[(df_prediction_odds.prediction_score > threshold)]
     if not keep_null:
         df_prediction_odds_high_score = df_prediction_odds_high_score.dropna()
@@ -269,6 +266,21 @@ def get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_nul
         df_prediction_odds_high_score = df_prediction_odds_high_score[df_prediction_odds_high_score.prediction_label != df_prediction_odds_high_score.property_value]
     return df_prediction_odds_high_score
 
+def get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, target_line):
+    df_prediction = read_df_live_prediction_from_gcs(live_prediction_gcs)
+    df_odds = read_df_odds_from_gcs(live_odds_gcs)
+
+    return filter_df(df_prediction, df_odds, threshold, keep_null, target_line, win_loss_dropdown='all')
+
+def get_live_data(live_prediction_gcs, live_odds_gcs, threshold, keep_null, target_line):
+    return get_live_df(live_prediction_gcs, live_odds_gcs, threshold, keep_null, target_line).to_dict("records")
+
+def get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, target_line, win_loss_dropdown):
+    df_prediction = read_df_history_prediction_from_gcs(history_prediction_gcs)
+    df_odds = read_df_odds_from_gcs(history_odds_gcs)
+
+    return filter_df(df_prediction, df_odds, threshold, keep_null, target_line, win_loss_dropdown)
+
 def get_history_data(history_prediction_gcs, history_odds_gcs, threshold, keep_null, target_line, win_loss_dropdown):
     return get_history_df(history_prediction_gcs, history_odds_gcs, threshold, keep_null, target_line, win_loss_dropdown).to_dict("records")
 
@@ -279,16 +291,18 @@ def update_live_table_1hits(threshold, keep_null, all_lines):
     return get_live_data(
         GCS_URL_LIVE_PREDICTION_1HITS,
         GCS_URL_LIVE_ODDS_HITS,
-        threshold, keep_null, None if all_lines else 0.5)
+        threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 0.5)
 
 @app.callback(
     Output("live_table_2hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
 )
 def update_live_table_2hits(threshold, keep_null, all_lines):
+    # target line is None as 2hits below corresponds to both 0.5 and 1.5
+    # negative 2hits means 0 or 1 hit so 1.5 line under
     return get_live_data(
         GCS_URL_LIVE_PREDICTION_2HITS,
         GCS_URL_LIVE_ODDS_HITS,
-        threshold, keep_null, None if all_lines else 1.5)
+        threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 1.5)
 
 @app.callback(
     Output("live_table_1strikeouts", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value")
@@ -297,7 +311,7 @@ def update_live_table_1strikeout(threshold, keep_null, all_lines):
     return get_live_data(
         GCS_URL_LIVE_PREDICTION_1STRIKEOUT,
         GCS_URL_LIVE_ODDS_STRIKEOUTS,
-        threshold, keep_null, None if all_lines else 0.5)
+        threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 0.5)
 
 @app.callback(
     Output("history_table_1hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
@@ -306,7 +320,7 @@ def update_history_table_1hits(threshold, keep_null, all_lines, win_loss_dropdow
     return get_history_data(
         GCS_URL_HISTORY_PREDICTION_1HITS,
         GCS_URL_HISTORY_ODDS_HITS,
-        threshold, keep_null, None if all_lines else 0.5, win_loss_dropdown)
+        threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 0.5, win_loss_dropdown)
 
 @app.callback(
     Output("history_table_2hits", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
@@ -315,7 +329,7 @@ def update_history_table_2hits(threshold, keep_null, all_lines, win_loss_dropdow
     return get_history_data(
         GCS_URL_HISTORY_PREDICTION_2HITS,
         GCS_URL_HISTORY_ODDS_HITS,
-        threshold, keep_null, None if all_lines else 1.5, win_loss_dropdown)
+        threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 1.5, win_loss_dropdown)
 
 @app.callback(
     Output("history_table_1strikeouts", "data"), Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
@@ -324,64 +338,94 @@ def update_history_table_1strikeout(threshold, keep_null, all_lines, win_loss_dr
     return get_history_data(
         GCS_URL_HISTORY_PREDICTION_1STRIKEOUT,
         GCS_URL_HISTORY_ODDS_STRIKEOUTS,
-        threshold, keep_null, None if all_lines else 0.5, win_loss_dropdown)
+        threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 0.5, win_loss_dropdown)
 
-def get_df_history_prediction_odds_1hits_odds():
+def get_df_history_prediction_odds_1hits_odds(threshold, keep_null, all_lines, win_loss_dropdown):
     df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_1HITS)
     df_odds = read_df_odds_from_gcs(GCS_URL_HISTORY_ODDS_HITS)
-    return merge_prediction_odds(df_prediction, df_odds)
+    return filter_df(df_prediction, df_odds,
+              threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 0.5,
+              win_loss_dropdown)
 
-def get_df_history_prediction_odds_2hits_odds():
+def get_df_history_prediction_odds_2hits_odds(threshold, keep_null, all_lines, win_loss_dropdown):
     df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_2HITS)
     df_odds = read_df_odds_from_gcs(GCS_URL_HISTORY_ODDS_HITS)
-    return merge_prediction_odds(df_prediction, df_odds)
+    return filter_df(df_prediction, df_odds,
+              threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 1.5,
+              win_loss_dropdown)
 
-def get_df_history_prediction_odds_1strikeouts_odds():
+def get_df_history_prediction_odds_1strikeouts_odds(threshold, keep_null, all_lines, win_loss_dropdown):
     df_prediction = read_df_history_prediction_from_gcs(GCS_URL_HISTORY_PREDICTION_1STRIKEOUT)
     df_odds = read_df_odds_from_gcs(GCS_URL_HISTORY_ODDS_STRIKEOUTS)
-    return merge_prediction_odds(df_prediction, df_odds)
+    return filter_df(df_prediction, df_odds,
+              threshold, 'null' in keep_null, None if 'all_lines' in all_lines else 0.5,
+              win_loss_dropdown)
 
 @app.callback(
     Output(component_id='confident_over_bet_profit_1hits', component_property='children'),
-    Input(component_id='threshold', component_property='value')
+    Input("threshold", "value"), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
 )
-def update_confident_1hits_over_bet_profit(threshold):
-    return get_confident_bets_description("1hit line=0.5 over", get_df_history_prediction_odds_1hits_odds(), target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
+def update_confident_1hits_over_bet_profit(threshold, keep_null, all_lines, win_loss_dropdown):
+    return get_confident_bets_description(
+        "1hit line=0.5 over",
+        get_df_history_prediction_odds_1hits_odds(threshold, keep_null, all_lines, win_loss_dropdown),
+        target_prediction_label=1.0, over_or_under="over",
+        target_line=None if 'all_lines' in all_lines else 0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_1hits', component_property='children'),
-    Input(component_id='threshold', component_property='value')
+    Input(component_id='threshold', component_property='value'), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
 )
-def update_confident_1hits_under_bet_profit(threshold):
-    return get_confident_bets_description("1hit line=0.5 under", get_df_history_prediction_odds_1hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+def update_confident_1hits_under_bet_profit(threshold, keep_null, all_lines, win_loss_dropdown):
+    return get_confident_bets_description(
+
+        "1hit line=0.5 under",
+        get_df_history_prediction_odds_1hits_odds(threshold, keep_null, all_lines, win_loss_dropdown),
+        target_prediction_label=0.0, over_or_under="under",
+        target_line=None if 'all_lines' in all_lines else 0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='blind_under_bet_profit_1hits', component_property='children'),
-    Input(component_id='pos_odds_thresholdd', component_property='value')
+    Input(component_id='pos_odds_thresholdd', component_property='value'), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
 )
-def update_blins_1hits_under_bet_profit(pos_odds_thresholdd):
-    return get_positive_under_odds_bets_description(f"1hit line=0.5 bet all positive under odds > {pos_odds_thresholdd}", get_df_history_prediction_odds_1hits_odds(), target_line=0.5, positive_odds_threshold=pos_odds_thresholdd)
+def update_blins_1hits_under_bet_profit(pos_odds_thresholdd, keep_null, all_lines, win_loss_dropdown):
+    return get_positive_under_odds_bets_description(
+        f"1hit line=0.5 bet all positive under odds > {pos_odds_thresholdd}",
+        get_df_history_prediction_odds_1hits_odds(pos_odds_thresholdd, keep_null, all_lines, win_loss_dropdown),
+        target_line=None if 'all_lines' in all_lines else 0.5, positive_odds_threshold=pos_odds_thresholdd)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_2hits', component_property='children'),
-    Input(component_id='threshold', component_property='value')
+    Input(component_id='threshold', component_property='value'), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
 )
-def update_confident_2hits_under_bet_profit(threshold):
-    return get_confident_bets_description("2hits line=1.5 under", get_df_history_prediction_odds_2hits_odds(), target_prediction_label=0.0, over_or_under="under", target_line=1.5, score_threshold=threshold)
+def update_confident_2hits_under_bet_profit(threshold, keep_null, all_lines, win_loss_dropdown):
+    return get_confident_bets_description(
+        "2hits line=1.5 under",
+        get_df_history_prediction_odds_2hits_odds(threshold, keep_null, all_lines, win_loss_dropdown),
+        target_prediction_label=0.0, over_or_under="under",
+        target_line=None if 'all_lines' in all_lines else 1.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_over_bet_profit_1strikeouts', component_property='children'),
-    Input(component_id='threshold', component_property='value')
+    Input(component_id='threshold', component_property='value'), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
 )
-def update_confident_1strikeouts_over_bet_profit(threshold):
-    return get_confident_bets_description("1striekout line=0.5 over", get_df_history_prediction_odds_1strikeouts_odds(), target_prediction_label=1.0, over_or_under="over", target_line=0.5, score_threshold=threshold)
+def update_confident_1strikeouts_over_bet_profit(threshold, keep_null, all_lines, win_loss_dropdown):
+    return get_confident_bets_description(
+        "1striekout line=0.5 over",
+        get_df_history_prediction_odds_1strikeouts_odds(threshold, keep_null, all_lines, win_loss_dropdown),
+        target_prediction_label=1.0, over_or_under="over",
+        target_line=None if 'all_lines' in all_lines else 0.5, score_threshold=threshold)
 
 @app.callback(
     Output(component_id='confident_under_bet_profit_1strikeouts', component_property='children'),
-    Input(component_id='threshold', component_property='value')
+    Input(component_id='threshold', component_property='value'), Input("keep_null", "value"), Input("all_lines", "value"), Input("win_loss_dropdown", "value")
 )
-def update_confident_1strikeouts_under_bet_profit(threshold):
-    return get_confident_bets_description("1striekout line=0.5 under", get_df_history_prediction_odds_1strikeouts_odds(), target_prediction_label=0.0, over_or_under="under", target_line=0.5, score_threshold=threshold)
+def update_confident_1strikeouts_under_bet_profit(threshold, keep_null, all_lines, win_loss_dropdown):
+    return get_confident_bets_description(
+        "1striekout line=0.5 under",
+        get_df_history_prediction_odds_1strikeouts_odds(threshold, keep_null, all_lines, win_loss_dropdown),
+        target_prediction_label=0.0, over_or_under="under",
+        target_line=None if 'all_lines' in all_lines else 0.5, score_threshold=threshold)
 
 # Run the app
 if __name__ == '__main__':
