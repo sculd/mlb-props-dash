@@ -10,7 +10,7 @@ date_str_yesterday = (datetime.datetime.now(pytz.timezone('US/Pacific')) - datet
 
 _default_threshold = 0.75
 _live_data_table_page_size = 6
-_history_data_table_page_size = 10
+_history_data_table_page_size = 7
 
 GCS_URL_LIVE_PREDICTION_1HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_1hits_recorded.pkl"
 GCS_URL_LIVE_PREDICTION_2HITS = "https://storage.googleapis.com/major-league-baseball-public/update_data/df_live_prediction_batting_2hits_recorded.pkl"
@@ -61,7 +61,8 @@ def read_df_history_prediction_from_gcs(gcs_pkl_url):
     #df = pd.read_pickle(gcs_pkl_url)
     df = pd.DataFrame.from_dict(read_df_pkl_as_dict_from_gcs(gcs_pkl_url))
     df = df[['game_id', 'game_date', 'batting_name', "property_name", "property_value", "prediction_label", "prediction_score", "theo_odds"]]
-    df = df[df.game_date <= date_str_yesterday].sort_values(['game_date'], ascending=False)
+    if len(df) > 0:
+        df = df[df.game_date <= date_str_yesterday].sort_values(['game_date'], ascending=False)
 
     return df
 
@@ -162,7 +163,7 @@ app.layout = html.Div([
             ),
             dcc.Checklist(
                 ['all_lines'],
-                ['all_lines'],
+                [],
                 id="all_lines"
             ),
             dcc.Dropdown(['all', 'win', 'lose'], 'all', id='win_loss_dropdown'),
