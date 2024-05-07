@@ -170,7 +170,7 @@ app.layout = html.Div([
         ],
         style={"width": 250},
     ),
-    dcc.Tabs(id='property-tabs', value='1Hits', children=[
+    dcc.Tabs(id='property-tabs', value='2Hits', children=[
         dcc.Tab(label='1Hits', value='1Hits'),
         dcc.Tab(label='2Hits', value='2Hits'),
         dcc.Tab(label='1Strikeouts', value='1Strikeouts'),
